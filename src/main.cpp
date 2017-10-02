@@ -45,6 +45,11 @@ void part2()
     Vector3d x_displacement(2.0/C.cols(),0,0);
     Vector3d y_displacement(0,-2.0/C.rows(),0);
 
+    //Give a non-origin center to the sphere
+    const double sphere_x = -1;
+    const double sphere_y = 1;
+    const double sphere_z = -10;
+
     // Single light source
     const Vector3d light_position(-1,1,1);
 
@@ -54,34 +59,58 @@ void part2()
         {
             // Prepare the ray
             Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
+            std::cout << "ray origin: " << ray_origin << "\n";
             Vector3d ray_direction = RowVector3d(0,0,-1);
 
-            // Intersect with the sphere
-            // NOTE: this is a special case of a sphere centered in the origin and for orthographic rays aligned with the z axis
             Vector2d ray_on_xy(ray_origin(0),ray_origin(1));
+
+            // Construct sphere
             const double sphere_radius = 0.9;
+            Vector3d sphere_center = RowVector3d(sphere_x,sphere_y,sphere_z);
 
-            if (ray_on_xy.norm()<sphere_radius)
-            {
-                // The ray hit the sphere, compute the exact intersection point
-                Vector3d ray_intersection(ray_on_xy(0),ray_on_xy(1),sqrt(sphere_radius*sphere_radius - ray_on_xy.squaredNorm()));
+            // Find discriminant to determine if there's a solution
+            double A_ = ray_direction.dot(ray_direction);
+            double B_ = 2 * ray_direction.dot((ray_origin - sphere_center));
+            double C_ = (ray_origin - sphere_center).dot((ray_origin - sphere_center)) - std::pow(sphere_radius,2);
+            // std::cout << "A: " << A_ << "\n";
+            // std::cout << "B: " << B_ << "\n";
+            // std::cout << "C: " << C_ << "\n";
+            double discriminant = std::pow(B_,2) - (4 * A_ * C_);
+            // std::cout << "discriminant: " << discriminant << "\n";
 
-                // Compute normal at the intersection point
-                Vector3d ray_normal = ray_intersection.normalized();
+            if(discriminant >= 0){
+              std::cout << "Ray hit sphere";
+              // The ray hit the sphere, compute the exact intersection point
+              // Vector3d ray_intersection(ray_origin(0),ray_origin(1),sqrt(sphere_radius*sphere_radius - ray_origin.squaredNorm()));
+              double T_pos = (-(B_) + discriminant)/(2 * A_);
+              double T_neg = (-(B_) - discriminant)/(2 * A_);
+              // std::cout << "T_pos: " << T_pos << "\n";
+              // std::cout << "T_neg: " << T_neg << "\n";
 
-                // Simple diffuse model
-                C(i,j) = (light_position-ray_intersection).normalized().transpose() * ray_normal;
+              // if(T_pos < T_neg){ //use T_pos
+              //   ray_intersection(T_pos(0), T_pos(1), sqrt(sphere_radius*sphere_radius - T_pos.squaredNorm()));
+              // }else{ //use T_neg
+              //   ray_intersection(T_neg(0), T_neg(1), sqrt(sphere_radius*sphere_radius - T_neg.squaredNorm()));
+              // }
+              // // Compute normal at the intersection point
+              // Vector3d ray_normal = ray_intersection.normalized();
+              //
+              // // Simple diffuse model
+              // C(i,j) = (light_position-ray_intersection).normalized().transpose() * ray_normal;
+              //
+              // // Clamp to zero
+              // C(i,j) = max(C(i,j),0.);
+              //
+              // // Disable the alpha mask for this pixel
+              // A(i,j) = 1;
 
-                // Clamp to zero
-                C(i,j) = max(C(i,j),0.);
-
-                // Disable the alpha mask for this pixel
-                A(i,j) = 1;
+              exit(0);
             }
         }
     }
 
     // Save to png
+    std::cout << "Saving to png";
     write_matrix_to_png(C,C,C,A,filename);
 
 }
