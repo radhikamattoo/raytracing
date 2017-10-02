@@ -45,10 +45,13 @@ void part2()
     Vector3d x_displacement(2.0/C.cols(),0,0);
     Vector3d y_displacement(0,-2.0/C.rows(),0);
 
-    //Give a non-origin center to the sphere
-    const double sphere_x = -1;
-    const double sphere_y = 1;
-    const double sphere_z = -10;
+    // Construct sphere & give non-origin center
+    const double sphere_x = 0;
+    const double sphere_y = 0;
+    const double sphere_z = 0;
+
+    Vector3d sphere_center = RowVector3d(sphere_x,sphere_y,sphere_z);
+    const double sphere_radius = 0.9;
 
     // Single light source
     const Vector3d light_position(-1,1,1);
@@ -59,14 +62,8 @@ void part2()
         {
             // Prepare the ray
             Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
-            std::cout << "ray origin: " << ray_origin << "\n";
             Vector3d ray_direction = RowVector3d(0,0,-1);
 
-            Vector2d ray_on_xy(ray_origin(0),ray_origin(1));
-
-            // Construct sphere
-            const double sphere_radius = 0.9;
-            Vector3d sphere_center = RowVector3d(sphere_x,sphere_y,sphere_z);
 
             // Find discriminant to determine if there's a solution
             double A_ = ray_direction.dot(ray_direction);
@@ -79,32 +76,36 @@ void part2()
             // std::cout << "discriminant: " << discriminant << "\n";
 
             if(discriminant >= 0){
-              std::cout << "Ray hit sphere";
+              // std::cout << "Ray hit sphere\n";
               // The ray hit the sphere, compute the exact intersection point
-              // Vector3d ray_intersection(ray_origin(0),ray_origin(1),sqrt(sphere_radius*sphere_radius - ray_origin.squaredNorm()));
               double T_pos = (-(B_) + discriminant)/(2 * A_);
               double T_neg = (-(B_) - discriminant)/(2 * A_);
               // std::cout << "T_pos: " << T_pos << "\n";
               // std::cout << "T_neg: " << T_neg << "\n";
 
-              // if(T_pos < T_neg){ //use T_pos
-              //   ray_intersection(T_pos(0), T_pos(1), sqrt(sphere_radius*sphere_radius - T_pos.squaredNorm()));
-              // }else{ //use T_neg
-              //   ray_intersection(T_neg(0), T_neg(1), sqrt(sphere_radius*sphere_radius - T_neg.squaredNorm()));
-              // }
-              // // Compute normal at the intersection point
-              // Vector3d ray_normal = ray_intersection.normalized();
-              //
-              // // Simple diffuse model
-              // C(i,j) = (light_position-ray_intersection).normalized().transpose() * ray_normal;
-              //
-              // // Clamp to zero
-              // C(i,j) = max(C(i,j),0.);
-              //
-              // // Disable the alpha mask for this pixel
-              // A(i,j) = 1;
+              Vector3d ray_intersection(ray_origin(0), ray_origin(1), ray_origin(2));
+              // Plug smaller T into the ray equation and find the point
+              if(T_pos < T_neg){ //use T_pos
+                // ray_intersection(T_pos(0), T_pos(1), sqrt(sphere_radius*sphere_radius - T_pos.squaredNorm()));
+                 ray_intersection = ray_origin + (T_pos * ray_direction);
+              }else{ //use T_neg
+                // ray_intersection(T_neg(0), T_neg(1), sqrt(sphere_radius*sphere_radius - T_neg.squaredNorm()));
+                 ray_intersection = ray_origin + (T_neg * ray_direction);
+              }
+              // std::cout << "Intersection: " << ray_intersection << "\n";
 
-              exit(0);
+              // Compute normal at the intersection point
+              Vector3d ray_normal = ray_intersection.normalized();
+
+              // Simple diffuse model
+              C(i,j) =  ray_normal.dot((light_position-ray_intersection).normalized().transpose());
+
+              // Clamp to zero
+              C(i,j) = max(C(i,j),0.);
+
+              // Disable the alpha mask for this pixel
+              A(i,j) = 1;
+
             }
         }
     }
