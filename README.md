@@ -17,7 +17,6 @@ Then
 ## 1.1 Ray Tracing Spheres
 
 
-
 ## 1.2 Shading
 
 
