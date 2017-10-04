@@ -244,7 +244,10 @@ void part3()
         {
             // Prepare the ray
             Vector3d ray_origin = origin;
-            Vector3d ray_direction =  (origin + double(i)*x_displacement + double(j)*y_displacement) - origin;
+
+            // Formula taken from textbook
+            Vector3d dir(0,0,-1);
+            Vector3d ray_direction =  dir + (double(i)*x_displacement + double(j)*y_displacement);
 
             // Find discriminants to determine if there's a solution
             double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
