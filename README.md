@@ -2,23 +2,21 @@
 Ray Tracing
 
 
-## Running
+## Setup
 `git clone --recursive https://github.com/NYUCG2017/assignment-1-radhikamattoo.git`
 
+
+## Running
 Inside the directory, run
 
-`g++ src/main.cpp -I ext/eigen/`
+`g++ src/main.cpp -I ext/eigen/ && ./a.out.`
 
-Then
-
-`./a.out`
-
+to compile & run the code.
 
 ## 1.1 Ray Tracing Spheres
 
 
 ## 1.2 Shading
-
 
 
 ## 1.3 Perspective Projection

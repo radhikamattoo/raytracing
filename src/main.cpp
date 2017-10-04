@@ -38,7 +38,7 @@ Vector3d get_intersection(double discriminant, Vector3d &ray_direction, Vector3d
   double T_neg = (-(B_) - std::sqrt(discriminant))/(2 * A_);
 
   // Plug smaller but positive t into  p(t) = e + td and find the point of intersection
-  // because the smaller t is 'in front'
+  // Smaller t is 'in front'
   Vector3d ray_intersection;
 
   if(T_pos < T_neg){
@@ -48,6 +48,7 @@ Vector3d get_intersection(double discriminant, Vector3d &ray_direction, Vector3d
   }
   return ray_intersection;
 }
+
 // Determines the color for a given pixel using its ray's intersection point
 double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, Vector3d &origin, Vector3d light_position, Vector3d &ray_direction, Vector3d &ray_origin, Vector3d &sphere_center)
 {
@@ -94,12 +95,6 @@ double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, 
     pixel_value = ambient + diffuse + specular;
   }
   return pixel_value;
-}
-
-//
-void perspective_projection()
-{
-
 }
 
 // 1.1 Ray Tracing Spheres
@@ -168,6 +163,7 @@ void part2()
     // One sphere should have specular, and one only diffuse lighting
     Vector3d sphere_center = RowVector3d(-0.5,0,0);
     Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
+    Vector3d sphere_center_3 = RowVector3d(0.0,0.5,0);
     const double sphere_radius = 0.4;
 
     const Vector3d light_position(-1,2,1);
@@ -185,6 +181,7 @@ void part2()
             // Find discriminants to determine if there's a solution
             double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
             double discriminant_2 = get_discriminant(ray_origin, ray_direction, sphere_center_2, sphere_radius);
+            double discriminant_3 = get_discriminant(ray_origin, ray_direction, sphere_center_3, sphere_radius);
 
             if(discriminant >= 0){
               diffuse = true; // one sphere should have only diffuse
@@ -196,12 +193,16 @@ void part2()
               G(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
               G(i,j) += get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_2);
               G(i,j) -= 0.1; //only supposed to count ambient lighting once
+            }else if(discriminant_3 >= 0){
+              diffuse = false; // the other sphere should be specular
+              B(i,j) = get_pixel_color(diffuse, discriminant_3, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_3);
+              B(i,j) += get_pixel_color(diffuse, discriminant_3, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_3);
+              B(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else{
               R(i,j) = 1.0;
               G(i,j) = 1.0;
               B(i,j) = 1.0;
             }
-
             // Disable the alpha mask for this pixel
             A(i,j) = 1;
 
@@ -232,9 +233,10 @@ void part3()
     // One sphere should have specular, and one only diffuse lighting
     Vector3d sphere_center = RowVector3d(-0.5,0,0);
     Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
-    const double sphere_radius = 0.4;
+    Vector3d sphere_center_3 = RowVector3d(0.0,0.5,0);
+    const double sphere_radius = 0.2;
 
-    const Vector3d light_position(-1,2,1);
+    const Vector3d light_position(-1,1,1);
     const Vector3d light_position_2(1, -2, -1);
 
     bool diffuse;
@@ -252,6 +254,7 @@ void part3()
             // Find discriminants to determine if there's a solution
             double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
             double discriminant_2 = get_discriminant(ray_origin, ray_direction, sphere_center_2, sphere_radius);
+            double discriminant_3 = get_discriminant(ray_origin, ray_direction, sphere_center_3, sphere_radius);
 
             if(discriminant >= 0){
               diffuse = true; // one sphere should have only diffuse
@@ -263,6 +266,11 @@ void part3()
               G(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
               G(i,j) += get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_2);
               G(i,j) -= 0.1; //only supposed to count ambient lighting once
+            }else if(discriminant_3 >= 0){
+              diffuse = false; // the other sphere should be specular
+              B(i,j) = get_pixel_color(diffuse, discriminant_3, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_3);
+              B(i,j) += get_pixel_color(diffuse, discriminant_3, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_3);
+              B(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else{
               R(i,j) = 1.0;
               G(i,j) = 1.0;
@@ -278,11 +286,16 @@ void part3()
     write_matrix_to_png(R,G,B,A,filename);
 }
 
+// 1.4 Ray Tracing Triangle Meshes
+void part4(){
+
+}
 int main()
 {
     // part1();
     // part2();
-    part3();
+    // part3();
+    // part4();
 
     return 0;
 }
