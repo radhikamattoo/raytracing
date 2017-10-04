@@ -118,13 +118,18 @@ void part2()
   std::cout << "Part 2: Simple ray tracer, one sphere with orthographic projection" << std::endl;
 
     const std::string filename("part2.png");
-    MatrixXd C = MatrixXd::Zero(800,800); // Store the color
+    // MatrixXd C = MatrixXd::Zero(800,800);
+    // Store the color
+    MatrixXd R = MatrixXd::Zero(800,800);
+    MatrixXd G = MatrixXd::Zero(800,800);
+    MatrixXd B = MatrixXd::Zero(800,800);
+
     MatrixXd A = MatrixXd::Zero(800,800); // Store the alpha mask
 
     // The camera is orthographic, pointing in the direction -z and covering the unit square (-1,1) in x and y
     Vector3d origin(-1,1,1);
-    Vector3d x_displacement(2.0/C.cols(),0,0);
-    Vector3d y_displacement(0,-2.0/C.rows(),0);
+    Vector3d x_displacement(2.0/A.cols(),0,0);
+    Vector3d y_displacement(0,-2.0/A.rows(),0);
 
     // TODO: Render multiple spheres with different colors
     // One should have specular  and one should have diffuse lighting
@@ -132,14 +137,13 @@ void part2()
     Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
     const double sphere_radius = 0.4;
 
-    // TODO: Add a second light source
     const Vector3d light_position(-1,2,1);
     const Vector3d light_position_2(1, -2, -1);
 
     bool diffuse;
-    for (unsigned i=0;i<C.cols();i++)
+    for (unsigned i=0;i<A.cols();i++)
     {
-        for (unsigned j=0;j<C.rows();j++)
+        for (unsigned j=0;j<A.rows();j++)
         {
             // Prepare the ray
             Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
@@ -151,16 +155,18 @@ void part2()
 
             if(discriminant >= 0){
               diffuse = true; // one sphere should have only diffuse
-              C(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
-              C(i,j) += get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center);
-              C(i,j) -= 0.1; //only supposed to count ambient lighting once
+              R(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+              R(i,j) += get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center);
+              R(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else if(discriminant_2 >= 0){
               diffuse = false; // the other sphere should be specular
-              C(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
-              C(i,j) += get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_2);
-              C(i,j) -= 0.1; //only supposed to count ambient lighting once
+              G(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
+              G(i,j) += get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_2);
+              G(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else{
-              C(i,j) = 1.0;
+              R(i,j) = 1.0;
+              G(i,j) = 1.0;
+              B(i,j) = 1.0;
             }
 
             // Disable the alpha mask for this pixel
@@ -168,15 +174,8 @@ void part2()
 
         } // inner loop
     } // outer loop
-
-    // Save to png
     std::cout << "Saving to png";
-    // if(diffuse){
-      // write_matrix_to_png(C,C,C,A,filename);
-    // }else{
-      // add color!
-      write_matrix_to_png(C,C,C,A,filename);
-    // }
+    write_matrix_to_png(R,G,B,A,filename);
 }
 
 
