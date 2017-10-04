@@ -45,11 +45,10 @@ Vector3d get_intersection(double discriminant, Vector3d &ray_direction, Vector3d
   return ray_intersection;
 }
 
-double get_pixel_color(double discriminant, double sphere_radius, Vector3d &origin, Vector3d light_position, Vector3d &ray_direction, Vector3d &ray_origin, Vector3d &sphere_center)
+double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, Vector3d &origin, Vector3d light_position, Vector3d &ray_direction, Vector3d &ray_origin, Vector3d &sphere_center)
 {
   double pixel_value;
 
-  const bool diffuse = false;
 
   Vector3d ray_intersection = get_intersection(discriminant, ray_direction, ray_origin, sphere_center);
 
@@ -68,16 +67,16 @@ double get_pixel_color(double discriminant, double sphere_radius, Vector3d &orig
 
   }else{
     // Ambient lighting is b/w 0 and 1
-    double ambient = 0.1;
+    double ambient = 0.01;
 
     // Phong exponent
-    int phong = 100;
+    int phong = 10;
 
     // Get V (pointing towards the camera)
     Vector3d V = (origin - ray_intersection).normalized().transpose();
 
     // Get H (bisector of V and L)
-    Vector3d H = (V + L).normalized();
+    Vector3d H = (V + L).normalized().transpose();
 
     double diffuse = ray_normal.dot(L);
     diffuse = max(diffuse, 0.);
@@ -134,10 +133,10 @@ void part2()
     const double sphere_radius = 0.4;
 
     // TODO: Add a second light source
-    const Vector3d light_position(-1,1,1);
-    const Vector3d light_position_2(1, -2, 1);
+    const Vector3d light_position(-1,2,1);
+    const Vector3d light_position_2(1, -2, -1);
 
-
+    bool diffuse;
     for (unsigned i=0;i<C.cols();i++)
     {
         for (unsigned j=0;j<C.rows();j++)
@@ -151,9 +150,15 @@ void part2()
             double discriminant_2 = get_discriminant(ray_origin, ray_direction, sphere_center_2, sphere_radius);
 
             if(discriminant >= 0){
-              C(i,j) = get_pixel_color(discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+              diffuse = true; // one sphere should have only diffuse
+              C(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+              C(i,j) += get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center);
+              C(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else if(discriminant_2 >= 0){
-              C(i,j) = get_pixel_color(discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
+              diffuse = false; // the other sphere should be specular
+              C(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
+              C(i,j) += get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position_2, ray_direction, ray_origin, sphere_center_2);
+              C(i,j) -= 0.1; //only supposed to count ambient lighting once
             }else{
               C(i,j) = 1.0;
             }
