@@ -45,7 +45,53 @@ Vector3d get_intersection(double discriminant, Vector3d &ray_direction, Vector3d
   return ray_intersection;
 }
 
+double get_pixel_color(double discriminant, double sphere_radius, Vector3d &origin, Vector3d light_position, Vector3d &ray_direction, Vector3d &ray_origin, Vector3d &sphere_center)
+{
+  double pixel_value;
 
+  const bool diffuse = false;
+
+  Vector3d ray_intersection = get_intersection(discriminant, ray_direction, ray_origin, sphere_center);
+
+  // Compute normal at the intersection point
+  Vector3d ray_normal = (ray_intersection - sphere_center)/sphere_radius;
+
+  // Get L (pointing towards light source)
+  Vector3d L = (light_position - ray_intersection).normalized().transpose();
+
+  if(diffuse){
+    // Simple diffuse model
+    pixel_value =  ray_normal.dot(L);
+
+    // Clamp to zero
+    pixel_value = max(pixel_value,0.);
+
+  }else{
+    // Ambient lighting is b/w 0 and 1
+    double ambient = 0.1;
+
+    // Phong exponent
+    int phong = 100;
+
+    // Get V (pointing towards the camera)
+    Vector3d V = (origin - ray_intersection).normalized().transpose();
+
+    // Get H (bisector of V and L)
+    Vector3d H = (V + L).normalized();
+
+    double diffuse = ray_normal.dot(L);
+    diffuse = max(diffuse, 0.);
+
+    // Get specular value
+    double specular = ray_normal.dot(H);
+    specular = max(specular, 0.);
+    specular = std::pow(specular, phong);
+
+    // Sum them
+    pixel_value = ambient + diffuse + specular;
+  }
+  return pixel_value;
+}
 
 void part1()
 {
@@ -67,6 +113,7 @@ void part1()
     write_matrix_to_png(M,M,M,1.0-M.array(),filename);
 }
 
+
 void part2()
 {
   std::cout << "Part 2: Simple ray tracer, one sphere with orthographic projection" << std::endl;
@@ -80,16 +127,16 @@ void part2()
     Vector3d x_displacement(2.0/C.cols(),0,0);
     Vector3d y_displacement(0,-2.0/C.rows(),0);
 
-    // Construct sphere & give non-origin center
-    const double sphere_x = 0;
-    const double sphere_y = 0;
-    const double sphere_z = 0;
+    // TODO: Render multiple spheres with different colors
+    // One should have specular  and one should have diffuse lighting
+    Vector3d sphere_center = RowVector3d(-0.5,0,0);
+    Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
+    const double sphere_radius = 0.4;
 
-    Vector3d sphere_center = RowVector3d(sphere_x,sphere_y,sphere_z);
-    const double sphere_radius = 0.9;
-
-    // Single light source
+    // TODO: Add a second light source
     const Vector3d light_position(-1,1,1);
+    const Vector3d light_position_2(1, -2, 1);
+
 
     for (unsigned i=0;i<C.cols();i++)
     {
@@ -99,29 +146,32 @@ void part2()
             Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
             Vector3d ray_direction = RowVector3d(0,0,-1);
 
-            // Find discriminant to determine if there's a solution
+            // Find discriminants to determine if there's a solution
             double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
-            // The ray hit the sphere, compute the exact intersection point
+            double discriminant_2 = get_discriminant(ray_origin, ray_direction, sphere_center_2, sphere_radius);
+
             if(discriminant >= 0){
-              Vector3d ray_intersection = get_intersection(discriminant, ray_direction, ray_origin, sphere_center);
-
-              // Compute normal at the intersection point
-              Vector3d ray_normal = (ray_intersection - sphere_center)/sphere_radius;
-
-              // Simple diffuse model
-              C(i,j) =  ray_normal.dot((light_position-ray_intersection).normalized().transpose());
-
-              // Clamp to zero
-              C(i,j) = max(C(i,j),0.);
-
-              // Disable the alpha mask for this pixel
-              A(i,j) = 1;
+              C(i,j) = get_pixel_color(discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+            }else if(discriminant_2 >= 0){
+              C(i,j) = get_pixel_color(discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
+            }else{
+              C(i,j) = 1.0;
             }
-        }
-    }
+
+            // Disable the alpha mask for this pixel
+            A(i,j) = 1;
+
+        } // inner loop
+    } // outer loop
+
     // Save to png
     std::cout << "Saving to png";
-    write_matrix_to_png(C,C,C,A,filename);
+    // if(diffuse){
+      // write_matrix_to_png(C,C,C,A,filename);
+    // }else{
+      // add color!
+      write_matrix_to_png(C,C,C,A,filename);
+    // }
 }
 
 
