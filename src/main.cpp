@@ -171,8 +171,10 @@ void part1()
   Vector3d y_displacement(0,-2.0/A.rows(),0);
 
   // CHANGE THIS LINE FOR NON-CENTERED SPHERE
-  Vector3d sphere_center = RowVector3d(0,0,0);
-  const double sphere_radius = 0.9;
+  Vector3d sphere_center = RowVector3d(-0.5,0,0);
+  Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
+  Vector3d sphere_center_3 = RowVector3d(0.0,0.5,0);
+  const double sphere_radius = 0.4;
 
   const Vector3d light_position(-1,1,1);
   const bool diffuse = true;
@@ -187,8 +189,17 @@ void part1()
 
           // Find discriminant and intersection point
           double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
+          double discriminant_2 =  get_discriminant(ray_origin, ray_direction, sphere_center_2, sphere_radius);
+          double discriminant_3 =  get_discriminant(ray_origin, ray_direction, sphere_center_3, sphere_radius);
+
           if(discriminant >= 0){
             C(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+          }else if(discriminant_2 >=0){
+            C(i,j) = get_pixel_color(diffuse, discriminant_2, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_2);
+
+          }else if(discriminant_3 >=0){
+            C(i,j) = get_pixel_color(diffuse, discriminant_3, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center_3);
+
           }else{
             C(i,j) = 1.0;
           }
@@ -205,7 +216,7 @@ void part2()
 {
   std::cout << "Part 1.2: Shading" << std::endl;
 
-    const std::string filename("part2.png");
+    const string filename("part2.png");
 
     // Store the color
     MatrixXd R = MatrixXd::Zero(800,800);
@@ -293,7 +304,7 @@ void part3()
     Vector3d sphere_center = RowVector3d(-0.5,0,0);
     Vector3d sphere_center_2 = RowVector3d(0.5,0,0);
     Vector3d sphere_center_3 = RowVector3d(0.0,0.5,0);
-    const double sphere_radius = 0.2;
+    const double sphere_radius = 0.4;
 
     const Vector3d light_position(-1,1,1);
     const Vector3d light_position_2(1, -2, -1);
@@ -371,10 +382,10 @@ void part6()
 }
 int main()
 {
-    // part1();
+    part1();
     // part2();
     // part3();
-    part4();
+    // part4();
 
     return 0;
 }
