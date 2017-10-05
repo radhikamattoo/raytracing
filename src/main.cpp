@@ -4,6 +4,7 @@
 
 // C++ include
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -54,7 +55,6 @@ double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, 
 {
   double pixel_value;
 
-
   Vector3d ray_intersection = get_intersection(discriminant, ray_direction, ray_origin, sphere_center);
 
   // Compute normal at the intersection point
@@ -95,6 +95,65 @@ double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, 
     pixel_value = ambient + diffuse + specular;
   }
   return pixel_value;
+}
+
+vector<float> split_line(string line)
+{
+  string extracted;
+  vector<float> data;
+
+  for(int i = 0; i< line.length(); i++){
+    char val = line[i];
+    if(line[i] == ' '){
+      // Convert to int and push to data vector
+      data.push_back(atof(extracted.c_str()));
+      extracted = "";
+    }else{
+      extracted.push_back(val);
+    }
+  }
+  return data;
+}
+
+// Iterates through given OFF file and fills V & F matrices
+pair<MatrixXd, MatrixXd> read_off_data(string filename)
+{
+  // Load file
+  string line;
+  ifstream stream(filename.c_str());
+  getline(stream, line); //first line is OFF
+
+  // Get data from 2nd line
+  getline(stream, line);
+  vector<float> data = split_line(line);
+
+  // Extract metadata into vars
+  int vertices = data[0];
+  int faces = data[1];
+  MatrixXd V = MatrixXd::Zero(vertices, 3);
+  MatrixXd F = MatrixXd::Zero(faces, 3);
+  vector<float> line_data;
+
+  // Fill V & F matrices from file
+  for(int v = 0; v < vertices; v++){
+    getline(stream, line);
+    line_data = split_line(line);
+    for(int j = 0; j < 3; j++){
+      V(v,j) = line_data[j];
+    }
+  }
+
+  for(int f = 0; f < faces; f++){
+    getline(stream, line);
+    line_data = split_line(line);
+    for(int j = 0; j < 3; j++){
+      F(f,j) = line_data[j];
+    }
+  }
+  // Construct pair and return
+  pair<MatrixXd, MatrixXd> matrices(V, F);
+  return matrices;
+
 }
 
 // 1.1 Ray Tracing Spheres
@@ -248,8 +307,9 @@ void part3()
             Vector3d ray_origin = origin;
 
             // Formula taken from textbook
-            Vector3d dir(0,0,-1);
-            Vector3d ray_direction =  dir + (double(i)*x_displacement + double(j)*y_displacement);
+            double focal_length = 1.0;
+            Vector3d w(0,0,-1);
+            Vector3d ray_direction =  (focal_length * w) + (double(i)*x_displacement + double(j)*y_displacement);
 
             // Find discriminants to determine if there's a solution
             double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
@@ -276,10 +336,8 @@ void part3()
               G(i,j) = 1.0;
               B(i,j) = 1.0;
             }
-
             // Disable the alpha mask for this pixel
             A(i,j) = 1;
-
         } // inner loop
     } // outer loop
     std::cout << "Saving sphere 1.3 to png" << std::endl;
@@ -287,7 +345,28 @@ void part3()
 }
 
 // 1.4 Ray Tracing Triangle Meshes
-void part4(){
+void part4()
+{
+    cout << "Part 1.4: Ray Tracing Triangle Meshes" << endl;
+
+    // Create data matrices from OFF files
+    pair<MatrixXd, MatrixXd> bumpy = read_off_data("data/bumpy_cube.off");
+    MatrixXd V_1 = bumpy.first;
+    MatrixXd F_1 = bumpy.second;
+
+    pair<MatrixXd, MatrixXd> bunny = read_off_data("data/bunny.off");
+    MatrixXd V_2 = bunny.first;
+    MatrixXd F_2 = bunny.second;
+}
+// 1.5 Shadows
+void part5()
+{
+
+}
+
+// 1.6 Reflections on the Floor
+void part6()
+{
 
 }
 int main()
@@ -295,7 +374,7 @@ int main()
     // part1();
     // part2();
     // part3();
-    // part4();
+    part4();
 
     return 0;
 }
