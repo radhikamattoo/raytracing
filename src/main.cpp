@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <Eigen/Dense>
 
 // Image writing library
 #define STB_IMAGE_WRITE_IMPLEMENTATION // Do not include this line twice in your project!
@@ -97,18 +98,23 @@ double get_pixel_color(bool diffuse, double discriminant, double sphere_radius, 
   return pixel_value;
 }
 
-vector<float> split_line(string line)
+vector<float> split_line(string line, bool F)
 {
   string extracted;
   vector<float> data;
+  int i = 0;
 
-  for(int i = 0; i< line.length(); i++){
+  // # of faces is the first character in every line, start at 2 to skip
+  if(F){
+    i = 2;
+  }
+  for(i; i <= line.length(); i++){
     char val = line[i];
-    if(line[i] == ' '){
+    if(val == ' ' || i == line.length()){ // Finished building int
       // Convert to int and push to data vector
       data.push_back(atof(extracted.c_str()));
       extracted = "";
-    }else{
+    }else{ // Still building int
       extracted.push_back(val);
     }
   }
@@ -125,7 +131,7 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename)
 
   // Get data from 2nd line
   getline(stream, line);
-  vector<float> data = split_line(line);
+  vector<float> data = split_line(line, false);
 
   // Extract metadata into vars
   int vertices = data[0];
@@ -137,7 +143,8 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename)
   // Fill V & F matrices from file
   for(int v = 0; v < vertices; v++){
     getline(stream, line);
-    line_data = split_line(line);
+    line_data = split_line(line, false);
+
     for(int j = 0; j < 3; j++){
       V(v,j) = line_data[j];
     }
@@ -145,17 +152,88 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename)
 
   for(int f = 0; f < faces; f++){
     getline(stream, line);
-    line_data = split_line(line);
+    line_data = split_line(line, true);
+
     for(int j = 0; j < 3; j++){
       F(f,j) = line_data[j];
     }
   }
+
   // Construct pair and return
   pair<MatrixXd, MatrixXd> matrices(V, F);
   return matrices;
 
 }
+vector<float> solver(Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Vector3d &ray_direction, Vector3d &ray_origin)
+{
+  // Construct matrices/vectors to solve for
+  Matrix3f A_;
+  Vector3f b_;
+  A_ << (a_coord - b_coord)[0], (a_coord - c_coord)[0], ray_direction[0],   (a_coord - b_coord)[1], (a_coord - c_coord)[1], ray_direction[1],  (a_coord - b_coord)[2], (a_coord - c_coord)[2], ray_direction[2];
+  b_ << (a_coord - ray_origin)[0], (a_coord - ray_origin)[1], (a_coord - ray_origin)[2];
 
+  Vector3f sol = A_.colPivHouseholderQr().solve(b_);
+  vector<float> solutions;
+
+  solutions.push_back(sol[0]);
+  solutions.push_back(sol[1]);
+  solutions.push_back(sol[2]);
+  return solutions;
+}
+
+vector<Vector3d> get_triangle_coordinates(MatrixXd &V, MatrixXd &F, unsigned row)
+{
+  Vector3f coordinates;
+  for(unsigned y=0; y< F.cols();y++)
+  {
+    // Get F indices from row
+    coordinates[y] = F(row,y);
+  }
+  // Now have indices to index into V with
+  float a_component = coordinates[0];
+  float b_component = coordinates[1];
+  float c_component = coordinates[2];
+
+  // Get triangle coordinates
+  Vector3d a_coord = RowVector3d(V(a_component,0),V(a_component, 1),V(a_component, 2));
+  Vector3d b_coord = RowVector3d(V(b_component,0),V(b_component, 1),V(b_component, 2));
+  Vector3d c_coord = RowVector3d(V(c_component,0),V(c_component, 1),V(c_component, 2));
+
+  vector<Vector3d> ret;
+  ret.push_back(a_coord);
+  ret.push_back(b_coord);
+  ret.push_back(c_coord);
+  return ret;
+}
+float get_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, Vector3d &light_position, Vector3d &origin)
+{
+  // Get L (pointing towards light source)
+  Vector3d L = (light_position - ray_intersection).normalized().transpose();
+
+  // Ambient lighting is b/w 0 and 1
+  double ambient = 0.01;
+
+  // Phong exponent
+  int phong = 10;
+
+  // Get V (pointing towards the camera)
+  Vector3d V = (origin - ray_intersection).normalized().transpose();
+
+  // Get H (bisector of V and L)
+  Vector3d H = (V + L).normalized().transpose();
+
+  double diffuse = ray_normal.dot(L);
+  diffuse = max(diffuse, 0.);
+
+  // Get specular value
+  double specular = ray_normal.dot(H);
+  specular = max(specular, 0.);
+  specular = std::pow(specular, phong);
+
+  // Sum them & return
+  return ambient + diffuse + specular;
+
+}
 // 1.1 Ray Tracing Spheres
 void part1()
 {
@@ -355,19 +433,81 @@ void part3()
     write_matrix_to_png(R,G,B,A,filename);
 }
 
+
 // 1.4 Ray Tracing Triangle Meshes
 void part4()
 {
     cout << "Part 1.4: Ray Tracing Triangle Meshes" << endl;
+    const std::string filename("part4.png");
 
     // Create data matrices from OFF files
     pair<MatrixXd, MatrixXd> bumpy = read_off_data("data/bumpy_cube.off");
-    MatrixXd V_1 = bumpy.first;
-    MatrixXd F_1 = bumpy.second;
+    MatrixXd V_bumpy = bumpy.first;
+    MatrixXd F_bumpy = bumpy.second;
 
     pair<MatrixXd, MatrixXd> bunny = read_off_data("data/bunny.off");
-    MatrixXd V_2 = bunny.first;
-    MatrixXd F_2 = bunny.second;
+    MatrixXd V_bunny = bunny.first;
+    MatrixXd F_bunny = bunny.second;
+
+    // Store the color
+    MatrixXd R = MatrixXd::Zero(800,800);
+    MatrixXd G = MatrixXd::Zero(800,800);
+    MatrixXd B = MatrixXd::Zero(800,800);
+
+    MatrixXd A = MatrixXd::Zero(800,800); // Store the alpha mask
+
+    // The camera is orthographic, pointing in the direction -z and covering the unit square (-1,1) in x and y
+    Vector3d origin(-1,1,1);
+    Vector3d x_displacement(2.0/A.cols(),0,0);
+    Vector3d y_displacement(0,-2.0/A.rows(),0);
+
+    Vector3d light_position(-1,1,1);
+    for (unsigned i=0;i<A.cols();i++)
+    {
+        for (unsigned j=0;j<A.rows();j++)
+        {
+          // Prepare the ray (orthographic)
+          // TODO: Make perspective?
+          Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
+          Vector3d ray_direction = RowVector3d(0,0,-1);
+
+          // Iterate through all faces and determine if intersection occurs
+          // TODO: Do for both bumpy and bunny matrices
+          for(unsigned x=0; x<F_bumpy.rows(); x++)
+          {
+            // Get coordinates for given face
+            vector<Vector3d> coords = get_triangle_coordinates(V_bumpy, F_bumpy, x);
+            Vector3d a_coord = coords[0];
+            Vector3d b_coord = coords[1];
+            Vector3d c_coord = coords[2];
+
+            // Get u, t, and v
+            vector<float> solutions = solver(a_coord, b_coord, c_coord, ray_direction, ray_origin);
+            float u =  solutions[0];
+            float t =  solutions[1];
+            float v =  solutions[2];
+
+            // Check for intersection
+            if(t > 0 && u >= 0 && v >=0 && (u+v) <= 1)
+            {
+              Vector3d ray_intersection = ray_origin + (t * ray_direction);
+              Vector3d ray_normal = (b_coord - a_coord).cross(c_coord - a_coord)/(((b_coord - a_coord).cross(c_coord - a_coord)).norm());
+              R(i,j) = get_triangle_pixel(ray_intersection, ray_normal, light_position, origin);
+            }else{
+              R(i,j) = 1.0;
+              G(i,j) = 1.0;
+              B(i,j) = 1.0;
+            } // else
+          } // outer for loop
+          A(i,j) = 1.0;
+        } // inner for loop
+        if(i % 200 == 0){
+          cout << "At outer index: " << i << endl;
+        }
+      } // outer for loop
+      std::cout << "Saving sphere 1.4 to png" << std::endl;
+      write_matrix_to_png(R,G,B,A,filename);
+
 }
 // 1.5 Shadows
 void part5()
@@ -382,10 +522,10 @@ void part6()
 }
 int main()
 {
-    part1();
+    // part1();
     // part2();
     // part3();
-    // part4();
+    part4();
 
     return 0;
 }
