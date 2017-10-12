@@ -164,6 +164,7 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename)
   return matrices;
 
 }
+// Solve for x, given Ax = b
 vector<float> solver(Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Vector3d &ray_direction, Vector3d &ray_origin)
 {
   // Construct matrices/vectors to solve for
@@ -181,6 +182,7 @@ vector<float> solver(Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Ve
   return solutions;
 }
 
+// Translates indices from F matrix into 3D coordinates from V
 vector<Vector3d> get_triangle_coordinates(MatrixXd &V, MatrixXd &F, unsigned row)
 {
   Vector3f coordinates;
@@ -205,6 +207,7 @@ vector<Vector3d> get_triangle_coordinates(MatrixXd &V, MatrixXd &F, unsigned row
   ret.push_back(c_coord);
   return ret;
 }
+// Gets pixel value for intersection point
 float get_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, Vector3d &light_position, Vector3d &origin)
 {
   // Get L (pointing towards light source)
@@ -222,8 +225,10 @@ float get_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, Vecto
   // Get H (bisector of V and L)
   Vector3d H = (V + L).normalized().transpose();
 
+
   double diffuse = ray_normal.dot(L);
   diffuse = max(diffuse, 0.);
+
 
   // Get specular value
   double specular = ray_normal.dot(H);
@@ -232,6 +237,7 @@ float get_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, Vecto
 
   // Sum them & return
   return ambient + diffuse + specular;
+  return diffuse;
 
 }
 // 1.1 Ray Tracing Spheres
@@ -433,7 +439,6 @@ void part3()
     write_matrix_to_png(R,G,B,A,filename);
 }
 
-
 // 1.4 Ray Tracing Triangle Meshes
 void part4()
 {
@@ -441,11 +446,11 @@ void part4()
     const std::string filename("part4.png");
 
     // Create data matrices from OFF files
-    pair<MatrixXd, MatrixXd> bumpy = read_off_data("data/bumpy_cube.off");
+    pair<MatrixXd, MatrixXd> bumpy = read_off_data("../data/bumpy_cube.off");
     MatrixXd V_bumpy = bumpy.first;
     MatrixXd F_bumpy = bumpy.second;
 
-    pair<MatrixXd, MatrixXd> bunny = read_off_data("data/bunny.off");
+    pair<MatrixXd, MatrixXd> bunny = read_off_data("../data/bunny.off");
     MatrixXd V_bunny = bunny.first;
     MatrixXd F_bunny = bunny.second;
 
@@ -466,39 +471,44 @@ void part4()
     {
         for (unsigned j=0;j<A.rows();j++)
         {
-          // Prepare the ray (orthographic)
-          // TODO: Make perspective?
-          Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
-          Vector3d ray_direction = RowVector3d(0,0,-1);
+          // Prepare the ray
+          Vector3d ray_origin = origin;
+
+          // Formula taken from textbook
+          double focal_length = 1.0;
+          Vector3d w(0,0,-1);
+          Vector3d ray_direction =  (focal_length * w) + (double(i)*x_displacement + double(j)*y_displacement);
 
           // Iterate through all faces and determine if intersection occurs
-          // TODO: Do for both bumpy and bunny matrices
           for(unsigned x=0; x<F_bumpy.rows(); x++)
           {
+            // TODO: Compare t to bunny
             // Get coordinates for given face
             vector<Vector3d> coords = get_triangle_coordinates(V_bumpy, F_bumpy, x);
             Vector3d a_coord = coords[0];
             Vector3d b_coord = coords[1];
             Vector3d c_coord = coords[2];
 
-            // Get u, t, and v
+            // Get u, v, and t
             vector<float> solutions = solver(a_coord, b_coord, c_coord, ray_direction, ray_origin);
             float u =  solutions[0];
-            float t =  solutions[1];
-            float v =  solutions[2];
+            float v =  solutions[1];
+            float t =  solutions[2];
 
             // Check for intersection
-            if(t > 0 && u >= 0 && v >=0 && (u+v) <= 1)
-            {
+            if(t > 0 && u >= 0 && v >=0 && (u+v) <= 1){
               Vector3d ray_intersection = ray_origin + (t * ray_direction);
-              Vector3d ray_normal = (b_coord - a_coord).cross(c_coord - a_coord)/(((b_coord - a_coord).cross(c_coord - a_coord)).norm());
+              Vector3d ray_normal = ((b_coord - a_coord).cross(c_coord - a_coord))/(((b_coord - a_coord).cross(c_coord - a_coord)).norm());
+              // FIXME: R(i,j) is always 0.01, ambient lighting...
               R(i,j) = get_triangle_pixel(ray_intersection, ray_normal, light_position, origin);
             }else{
               R(i,j) = 1.0;
               G(i,j) = 1.0;
               B(i,j) = 1.0;
-            } // else
-          } // outer for loop
+            }
+
+          } // F matrix for loop
+
           A(i,j) = 1.0;
         } // inner for loop
         if(i % 200 == 0){
@@ -509,16 +519,138 @@ void part4()
       write_matrix_to_png(R,G,B,A,filename);
 
 }
+float raycolor(Vector3d &ray_origin, Vector3d &ray_direction, Vector3d &ray_intersection, Vector3d &light_position)
+{
+  epsilon = 0.01;
+  // Get L (pointing towards light source)
+  Vector3d L = (light_position - ray_intersection).normalized().transpose();
+
+  // Diffuse value
+  float pixel_value =  ray_normal.dot(L);
+  pixel_value = max(pixel_value,0.);
+
+  // Shadow ray
+  Vector3d shadow_ray = ray_intersection + (epsilon * L);
+  Vector3d shadow_direction = L;
+
+
+}
 // 1.5 Shadows
 void part5()
 {
+  std::cout << "Part 1.5: Shadows" << std::endl;
 
+    const string filename("part5.png");
+
+    // Store the color
+    MatrixXd R = MatrixXd::Zero(800,800);
+    MatrixXd G = MatrixXd::Zero(800,800);
+    MatrixXd B = MatrixXd::Zero(800,800);
+
+    MatrixXd A = MatrixXd::Zero(800,800); // Store the alpha mask
+
+    // The camera is orthographic, pointing in the direction -z and covering the unit square (-1,1) in x and y
+    Vector3d origin(-1,1,1);
+    Vector3d x_displacement(2.0/A.cols(),0,0);
+    Vector3d y_displacement(0,-2.0/A.rows(),0);
+
+    // One sphere should have specular, and one only diffuse lighting
+    Vector3d sphere_center = RowVector3d(-0.5,0,0);
+    const double sphere_radius = 0.4;
+
+    const Vector3d light_position(-1,2,1);
+
+    bool diffuse;
+    for (unsigned i=0;i<A.cols();i++)
+    {
+        for (unsigned j=0;j<A.rows();j++)
+        {
+            // Prepare the ray
+            Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
+            Vector3d ray_direction = RowVector3d(0,0,-1);
+
+            // Find discriminants to determine if there's a solution
+            double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
+
+            if(discriminant >= 0){
+              diffuse = true; // one sphere should have only diffuse
+              R(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+            }else{
+              R(i,j) = 1.0;
+              G(i,j) = 1.0;
+              B(i,j) = 1.0;
+            }
+            // TODO: Check for shadows
+            // What is p and how do we get it? I don't have 3d coordintes, only pixel indices.
+            // Vector3d shadow_ray = p + t * light_position
+
+            // Disable the alpha mask for this pixel
+            A(i,j) = 1;
+
+        } // inner loop
+    } // outer loop
+    std::cout << "Saving sphere 1.5 to png" << std::endl;
+    write_matrix_to_png(R,G,B,A,filename);
 }
 
 // 1.6 Reflections on the Floor
 void part6()
 {
+  std::cout << "Part 1.6: Reflections" << std::endl;
 
+    const string filename("part6.png");
+
+    // Store the color
+    MatrixXd R = MatrixXd::Zero(800,800);
+    MatrixXd G = MatrixXd::Zero(800,800);
+    MatrixXd B = MatrixXd::Zero(800,800);
+
+    MatrixXd A = MatrixXd::Zero(800,800); // Store the alpha mask
+
+    // The camera is orthographic, pointing in the direction -z and covering the unit square (-1,1) in x and y
+    Vector3d origin(-1,1,1);
+    Vector3d x_displacement(2.0/A.cols(),0,0);
+    Vector3d y_displacement(0,-2.0/A.rows(),0);
+
+    // One sphere should have specular, and one only diffuse lighting
+    Vector3d sphere_center = RowVector3d(-0.5,0,0);
+    const double sphere_radius = 0.4;
+
+    const Vector3d light_position(-1,2,1);
+
+    bool diffuse;
+    for (unsigned i=0;i<A.cols();i++)
+    {
+        for (unsigned j=0;j<A.rows();j++)
+        {
+            // Prepare the ray
+            Vector3d ray_origin = origin;
+
+            // Formula taken from textbook
+            double focal_length = 1.0;
+            Vector3d w(0,0,-1);
+            Vector3d ray_direction =  (focal_length * w) + (double(i)*x_displacement + double(j)*y_displacement);
+
+            // Find discriminant to determine if there's a solution
+            double discriminant =  get_discriminant(ray_origin, ray_direction, sphere_center, sphere_radius);
+
+            if(discriminant >= 0){
+              diffuse = true; // one sphere should have only diffuse
+              R(i,j) = get_pixel_color(diffuse, discriminant, sphere_radius, origin, light_position, ray_direction, ray_origin, sphere_center);
+              // Check for reflections
+            }else{
+              R(i,j) = 1.0;
+              G(i,j) = 1.0;
+              B(i,j) = 1.0;
+            }
+
+            // Disable the alpha mask for this pixel
+            A(i,j) = 1;
+
+        } // inner loop
+    } // outer loop
+    std::cout << "Saving sphere 1.5 to png" << std::endl;
+    write_matrix_to_png(R,G,B,A,filename);
 }
 int main()
 {
