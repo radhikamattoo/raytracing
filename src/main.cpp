@@ -285,6 +285,7 @@ bool does_intersect(float t, float u, float v)
   return false;
 }
 
+// TODO: Refactor and delete this function
 float return_pixel_value(Vector3d &ray_intersection, Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Vector3d &light_position, Vector3d &origin, float t)
 {
   Vector3d ray_normal = ((b_coord - a_coord).cross(c_coord - a_coord)).normalized();
@@ -533,8 +534,64 @@ void part3()
     std::cout << "Saving sphere 1.3 to png" << std::endl;
     write_matrix_to_png(R,G,B,A,filename);
 }
+// Returns a <bool,float> describing which object it intersected with and the color to set
+// True means it hit the BUNNY, False means it hit  BUMPY
+pair<bool,float> reflection_intersection(Vector3d &r, Vector3d &intersection_point, Vector3d &light_position, MatrixXd &F_bumpy, MatrixXd &V_bumpy, MatrixXd &F_bunny, MatrixXd &V_bunny)
+{
+  // R is our ray direction, intersection point is our origin
+  float epsilon = 0.01;
+  Vector3d ray_origin = intersection_point;
+  Vector3d ray_direction = r;
+  ray_origin = ray_origin + (epsilon * ray_direction);
 
-void part4()
+  Vector3d origin(-1,1,1);
+  pair<bool, float> pixel_data(false,-100);
+
+  // Iterate through all faces and determine if intersection occurs
+  for(unsigned x=0; x<(F_bumpy.rows()); x++)
+  {
+    // Get 3D coordinates
+    vector<Vector3d> coords_bumpy = get_triangle_coordinates(V_bumpy, F_bumpy, x);
+    Vector3d a_coord_bumpy = coords_bumpy[0];
+    Vector3d b_coord_bumpy = coords_bumpy[1];
+    Vector3d c_coord_bumpy = coords_bumpy[2];
+
+
+    vector<Vector3d> coords_bunny = get_triangle_coordinates(V_bunny, F_bunny, x);
+    Vector3d a_coord_bunny = coords_bunny[0];
+    Vector3d b_coord_bunny = coords_bunny[1];
+    Vector3d c_coord_bunny = coords_bunny[2];
+
+    // Get u, v, and t
+    vector<float> solutions_bumpy = solver(a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, ray_direction, ray_origin);
+    float u_bumpy =  solutions_bumpy[0];
+    float v_bumpy =  solutions_bumpy[1];
+    float t_bumpy =  solutions_bumpy[2];
+
+    vector<float> solutions_bunny = solver(a_coord_bunny, b_coord_bunny, c_coord_bunny, ray_direction, ray_origin);
+    float u_bunny =  solutions_bunny[0];
+    float v_bunny =  solutions_bunny[1];
+    float t_bunny =  solutions_bunny[2];
+
+    // Check for intersection
+    bool bunny_intersects = does_intersect(t_bunny, u_bunny,v_bunny);
+    bool bumpy_intersects = does_intersect(t_bumpy, u_bumpy, v_bumpy);
+
+    if(bunny_intersects){
+      Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
+      pixel_data = make_pair(true,return_pixel_value(ray_intersection, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny));
+      break;
+    }else if(bumpy_intersects){
+      Vector3d ray_intersection = ray_origin + (t_bumpy * ray_direction);
+      pixel_data = make_pair(false,return_pixel_value(ray_intersection, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny));
+      break;
+    }
+  } //end for loop
+  return pixel_data;
+
+}
+
+void part4(bool shadows, bool reflections)
 {
     // TODO: Refactor shadows and reflection with boolean option
     cout << "Part 1.4: Ray Tracing Triangle Meshes & Part 1.5: Shadows" << endl;
@@ -562,6 +619,9 @@ void part4()
     Vector3d y_displacement(0,-2.0/A.rows(),0);
 
     Vector3d light_position(-1,1,1);
+
+    // mirror is the plane where y = -1
+    float mirror = -1;
     for (unsigned i=0;i<A.cols();i++)
     {
         for (unsigned j=0;j<A.rows();j++)
@@ -578,6 +638,7 @@ void part4()
             Vector3d a_coord_bumpy = coords_bumpy[0];
             Vector3d b_coord_bumpy = coords_bumpy[1];
             Vector3d c_coord_bumpy = coords_bumpy[2];
+
 
             vector<Vector3d> coords_bunny = get_triangle_coordinates(V_bunny, F_bunny, x);
             Vector3d a_coord_bunny = coords_bunny[0];
@@ -596,11 +657,32 @@ void part4()
             float t_bunny =  solutions_bunny[2];
 
             // Check for intersection
-            // TODO: Reflections
             bool bunny_intersects = does_intersect(t_bunny, u_bunny,v_bunny);
             bool bumpy_intersects = does_intersect(t_bumpy, u_bumpy, v_bumpy);
 
-            if(bunny_intersects){
+            // TODO: Reflections
+            float t_reflection = (mirror - ray_origin[1])/ray_direction[1];
+            if(t_reflection > 0){
+              // If there's a reflection, find r and perform intersection again
+              Vector3d ray_intersection_reflection = ray_origin + (t_reflection * ray_direction);
+              // Vector3d ray_normal = ray_intersection_reflection.normalized().transpose();
+              Vector3d ray_normal = RowVector3d(0,1,0); // Normal from the y-plane is a unit vector pointing directly upwards
+              Vector3d d_direction = (ray_intersection_reflection - origin).normalized().transpose();
+              Vector3d r_direction = d_direction - (2 *(d_direction.dot(ray_normal)) * ray_normal);
+
+              // Perform ray intersection on r
+              pair<bool,float> result = reflection_intersection(r_direction, ray_intersection_reflection, light_position, F_bumpy, V_bumpy, F_bunny, V_bunny);
+              bool is_bunny = result.first;
+              float pixel_value = result.second;
+              if(pixel_value != -100){
+                if(is_bunny){
+                  R(i,j) = pixel_value;
+                }else{
+                  G(i,j) = pixel_value;
+                }
+                A(i,j) = 1.0;
+              }
+            }else if(bunny_intersects){
               Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
               if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
                 R(i,j) = 0.0;
@@ -621,7 +703,6 @@ void part4()
               A(i,j) = 1.0;
               break;
             }
-
           } // F matrix for loop
 
         } // inner for loop
@@ -639,7 +720,7 @@ int main()
     // part1();
     // part2();
     // part3();
-    part4();
+    part4(true, false);
 
     return 0;
 }
