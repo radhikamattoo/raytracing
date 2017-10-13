@@ -293,10 +293,10 @@ float return_pixel_value(Vector3d &ray_intersection, Vector3d &a_coord, Vector3d
 
 bool is_a_shadow(Vector3d &ray_intersection, Vector3d &light_position, MatrixXd &F_bumpy, MatrixXd &V_bumpy, MatrixXd &F_bunny, MatrixXd &V_bunny)
 {
-  // FIXME: Multiply by epsilon or add??
   float epsilon = 0.01;
-  Vector3d shadow_origin = ray_intersection * epsilon;
+  Vector3d shadow_origin = ray_intersection;
   Vector3d shadow_direction = (light_position - ray_intersection).normalized().transpose();
+  shadow_origin = shadow_origin + (epsilon * shadow_direction);
 
   bool intersects = false;
 
@@ -536,8 +536,9 @@ void part3()
 
 void part4()
 {
-    cout << "Part 1.4: Ray Tracing Triangle Meshes" << endl;
-    const std::string filename("part4-both-shadow-epsilon.png");
+    // TODO: Refactor shadows and reflection with boolean option
+    cout << "Part 1.4: Ray Tracing Triangle Meshes & Part 1.5: Shadows" << endl;
+    const std::string filename("part4-no-shadow.png");
 
     // Create data matrices from OFF files
     pair<MatrixXd, MatrixXd> bumpy = read_off_data("../data/bumpy_cube.off", false);
@@ -561,7 +562,6 @@ void part4()
     Vector3d y_displacement(0,-2.0/A.rows(),0);
 
     Vector3d light_position(-1,1,1);
-    Vector3d light_position_2(1,-1,1);
     for (unsigned i=0;i<A.cols();i++)
     {
         for (unsigned j=0;j<A.rows();j++)
@@ -602,35 +602,34 @@ void part4()
 
             if(bunny_intersects){
               Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
-
-              if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny) ){
+              if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
                 R(i,j) = 0.0;
-              }else{
+              }
+              else{
                 R(i,j) = return_pixel_value(ray_intersection, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny);
               }
+              A(i,j) = 1.0;
               break;
             }else if(bumpy_intersects){
               Vector3d ray_intersection = ray_origin + (t_bumpy * ray_direction);
-              if(is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
+              if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny) ){
                 G(i,j) = 0.0;
-              }else{
+              }
+              else{
                 G(i,j) = return_pixel_value(ray_intersection, a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, light_position, origin, t_bumpy);
               }
+              A(i,j) = 1.0;
               break;
-            }else{
-              R(i,j) = 1.0;
-              G(i,j) = 1.0;
-              B(i,j) = 1.0;
             }
+
           } // F matrix for loop
-          A(i,j) = 1.0;
 
         } // inner for loop
         if(i % 200 == 0){
           cout << "At outer index: " << i << endl;
         }
       } // outer for loop
-      std::cout << "Saving sphere 1.4 to png" << std::endl;
+      std::cout << "Saving sphere 1.4/1.5 to png" << std::endl;
       write_matrix_to_png(R,G,B,A,filename);
 }
 
