@@ -544,6 +544,7 @@ pair<bool,float> reflection_intersection(Vector3d &r, Vector3d &intersection_poi
   Vector3d ray_direction = r;
   ray_origin = ray_origin + (epsilon * ray_direction);
 
+
   Vector3d origin(-1,1,1);
   pair<bool, float> pixel_data(false,-100);
 
@@ -595,7 +596,7 @@ void part4(bool shadows, bool reflections)
 {
     // TODO: Refactor shadows and reflection with boolean option
     cout << "Part 1.4: Ray Tracing Triangle Meshes & Part 1.5: Shadows" << endl;
-    const std::string filename("part4-no-shadow.png");
+    const std::string filename("part4-testing-no-if-statement.png");
 
     // Create data matrices from OFF files
     pair<MatrixXd, MatrixXd> bumpy = read_off_data("../data/bumpy_cube.off", false);
@@ -620,15 +621,19 @@ void part4(bool shadows, bool reflections)
 
     Vector3d light_position(-1,1,1);
 
-    // mirror is the plane where y = -1
-    float mirror = -1;
+    // mirror is the plane where y = 0
+    float mirror = -0.5;
     for (unsigned i=0;i<A.cols();i++)
     {
         for (unsigned j=0;j<A.rows();j++)
         {
           // Prepare the ray
-          Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
-          Vector3d ray_direction = RowVector3d(0,0,-1);
+          Vector3d ray_origin = origin;
+
+          // Formula taken from textbook
+          double focal_length = 1.0;
+          Vector3d w(0,0,-1);
+          Vector3d ray_direction =  (focal_length * w) + (double(i)*x_displacement + double(j)*y_displacement);
 
           // Iterate through all faces and determine if intersection occurs
           for(unsigned x=0; x<(F_bumpy.rows()); x++)
@@ -660,7 +665,6 @@ void part4(bool shadows, bool reflections)
             bool bunny_intersects = does_intersect(t_bunny, u_bunny,v_bunny);
             bool bumpy_intersects = does_intersect(t_bumpy, u_bumpy, v_bumpy);
 
-            // TODO: Reflections
             float t_reflection = (mirror - ray_origin[1])/ray_direction[1];
             if(t_reflection > 0){
               // If there's a reflection, find r and perform intersection again
@@ -675,6 +679,7 @@ void part4(bool shadows, bool reflections)
               bool is_bunny = result.first;
               float pixel_value = result.second;
               if(pixel_value != -100){
+                cout << pixel_value << endl;
                 if(is_bunny){
                   R(i,j) = pixel_value;
                 }else{
@@ -683,6 +688,7 @@ void part4(bool shadows, bool reflections)
                 A(i,j) = 1.0;
               }
             }else if(bunny_intersects){
+              cout << "BUNNY intersection!" << endl;
               Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
               if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
                 R(i,j) = 0.0;
@@ -693,6 +699,7 @@ void part4(bool shadows, bool reflections)
               A(i,j) = 1.0;
               break;
             }else if(bumpy_intersects){
+              cout << "BUMPY intersection!" << endl;
               Vector3d ray_intersection = ray_origin + (t_bumpy * ray_direction);
               if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny) ){
                 G(i,j) = 0.0;
@@ -720,7 +727,7 @@ int main()
     // part1();
     // part2();
     // part3();
-    part4(true, false);
+    part4(true, true);
 
     return 0;
 }
