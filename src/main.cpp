@@ -18,7 +18,6 @@
 using namespace std;
 using namespace Eigen;
 
-
 // Returns discriminant for given data
 double get_discriminant(Vector3d &ray_origin, Vector3d &ray_direction, Vector3d &sphere_center, double sphere_radius)
 {
@@ -246,8 +245,6 @@ float compute_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, V
   // Get L (pointing towards light source)
   Vector3d L = (light_position - ray_intersection).normalized().transpose();
 
-  // cout << "L: " << L << endl;
-
   // Ambient lighting is b/w 0 and 1
   double ambient = 0.01;
 
@@ -256,21 +253,17 @@ float compute_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, V
 
   // Get V (pointing towards the camera)
   Vector3d V = (origin - ray_intersection).normalized().transpose();
-  // cout << "V: " << V << endl;
 
   // Get H (bisector of V and L)
   Vector3d H = (V + L).normalized().transpose();
-  // cout << "H: " << V << endl;
 
   double diffuse = ((light_position - ray_intersection).normalized().transpose()) * ray_intersection;
   diffuse = max(diffuse, 0.);
-  // cout << "diffuse: " << diffuse << endl;
 
   // Get specular value
   double specular = ray_normal.dot(H);
   specular = max(specular, 0.);
   specular = std::pow(specular, phong);
-  // cout << "Specular: " << specular << endl;
 
   // Sum them & return
   return ambient + diffuse + specular;
@@ -291,6 +284,57 @@ bool does_intersect(float t, float u, float v)
   if(t > 0 && u >= 0 && v >=0 && (u+v) <= 1){ return true; }
   return false;
 }
+
+float return_pixel_value(Vector3d &ray_intersection, Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Vector3d &light_position, Vector3d &origin, float t)
+{
+  Vector3d ray_normal = ((b_coord - a_coord).cross(c_coord - a_coord)).normalized();
+  return compute_triangle_pixel(ray_intersection, ray_normal, light_position, origin);
+}
+
+bool is_a_shadow(Vector3d &ray_intersection, Vector3d &light_position, MatrixXd &F_bumpy, MatrixXd &V_bumpy, MatrixXd &F_bunny, MatrixXd &V_bunny)
+{
+  // FIXME: Multiply by epsilon or add??
+  float epsilon = 0.01;
+  Vector3d shadow_origin = ray_intersection * epsilon;
+  Vector3d shadow_direction = (light_position - ray_intersection).normalized().transpose();
+
+  bool intersects = false;
+
+  for(unsigned x=0; x<(F_bumpy.rows()); x++)
+  {
+    // Get 3D coordinates
+    vector<Vector3d> coords_bumpy = get_triangle_coordinates(V_bumpy, F_bumpy, x);
+    Vector3d a_coord_bumpy = coords_bumpy[0];
+    Vector3d b_coord_bumpy = coords_bumpy[1];
+    Vector3d c_coord_bumpy = coords_bumpy[2];
+
+    vector<Vector3d> coords_bunny = get_triangle_coordinates(V_bunny, F_bunny, x);
+    Vector3d a_coord_bunny = coords_bunny[0];
+    Vector3d b_coord_bunny = coords_bunny[1];
+    Vector3d c_coord_bunny = coords_bunny[2];
+
+    // Get u, v, and t
+    vector<float> solutions_bumpy = solver(a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, shadow_direction, shadow_origin);
+    float u_bumpy =  solutions_bumpy[0];
+    float v_bumpy =  solutions_bumpy[1];
+    float t_bumpy =  solutions_bumpy[2];
+
+    vector<float> solutions_bunny = solver(a_coord_bunny, b_coord_bunny, c_coord_bunny, shadow_direction, shadow_origin);
+    float u_bunny =  solutions_bunny[0];
+    float v_bunny =  solutions_bunny[1];
+    float t_bunny =  solutions_bunny[2];
+
+    // Check for intersection
+    bool bunny_intersects = does_intersect(t_bunny, u_bunny,v_bunny);
+    bool bumpy_intersects = does_intersect(t_bumpy, u_bumpy, v_bumpy);
+    if(bunny_intersects || bumpy_intersects){
+      intersects = true;
+      break;
+    }
+  }
+  return intersects;
+}
+
 // 1.1 Ray Tracing Spheres
 void part1()
 {
@@ -490,16 +534,10 @@ void part3()
     write_matrix_to_png(R,G,B,A,filename);
 }
 
-float return_pixel_value(Vector3d &ray_origin, Vector3d &ray_direction, Vector3d &a_coord, Vector3d &b_coord, Vector3d &c_coord, Vector3d &light_position, Vector3d &origin, float t)
-{
-  Vector3d ray_intersection = ray_origin + (t * ray_direction);
-  Vector3d ray_normal = ((b_coord - a_coord).cross(c_coord - a_coord)).normalized();
-  return compute_triangle_pixel(ray_intersection, ray_normal, light_position, origin);
-}
 void part4()
 {
     cout << "Part 1.4: Ray Tracing Triangle Meshes" << endl;
-    const std::string filename("part4-both.png");
+    const std::string filename("part4-both-shadow-epsilon.png");
 
     // Create data matrices from OFF files
     pair<MatrixXd, MatrixXd> bumpy = read_off_data("../data/bumpy_cube.off", false);
@@ -558,23 +596,26 @@ void part4()
             float t_bunny =  solutions_bunny[2];
 
             // Check for intersection
-            // TODO: Shadows
             // TODO: Reflections
             bool bunny_intersects = does_intersect(t_bunny, u_bunny,v_bunny);
             bool bumpy_intersects = does_intersect(t_bumpy, u_bumpy, v_bumpy);
-            if(bunny_intersects && bumpy_intersects){
-              //compare t values and intersect with closer t
-              if(t_bunny <= t_bumpy){
-                R(i,j) = return_pixel_value(ray_origin, ray_direction, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny);
+
+            if(bunny_intersects){
+              Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
+
+              if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny) ){
+                R(i,j) = 0.0;
               }else{
-                G(i,j) = return_pixel_value(ray_origin, ray_direction, a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, light_position, origin, t_bumpy);
+                R(i,j) = return_pixel_value(ray_intersection, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny);
               }
               break;
-            }else if(bunny_intersects){
-              R(i,j) = return_pixel_value(ray_origin, ray_direction, a_coord_bunny, b_coord_bunny, c_coord_bunny, light_position, origin, t_bunny);
-              break;
             }else if(bumpy_intersects){
-              G(i,j) = return_pixel_value(ray_origin, ray_direction, a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, light_position, origin, t_bumpy);
+              Vector3d ray_intersection = ray_origin + (t_bumpy * ray_direction);
+              if(is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
+                G(i,j) = 0.0;
+              }else{
+                G(i,j) = return_pixel_value(ray_intersection, a_coord_bumpy, b_coord_bumpy, c_coord_bumpy, light_position, origin, t_bumpy);
+              }
               break;
             }else{
               R(i,j) = 1.0;
