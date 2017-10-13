@@ -149,7 +149,7 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename, bool enlarge)
 
     for(int j = 0; j < 3; j++){
       if(enlarge){
-        V(v,j) = (line_data[j]*5);
+        V(v,j) = (line_data[j]*3);
       }else{
         V(v,j) = (line_data[j]/10);
       }
@@ -265,7 +265,6 @@ float compute_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, V
   double diffuse = ((light_position - ray_intersection).normalized().transpose()) * ray_intersection;
   diffuse = max(diffuse, 0.);
   // cout << "diffuse: " << diffuse << endl;
-
 
   // Get specular value
   double specular = ray_normal.dot(H);
