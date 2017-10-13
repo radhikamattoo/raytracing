@@ -268,16 +268,7 @@ float compute_triangle_pixel(Vector3d &ray_intersection, Vector3d &ray_normal, V
   // Sum them & return
   return ambient + diffuse + specular;
 }
-// Determines if a given shadow ray intersects with an object
-bool is_shadow_pixel(Vector3d &ray_intersection, Vector3d &light_position)
-{
-  // Cast a ray from the intersection point to the light source
-  // If it intersects with an object before the light (t_intersect < t_light) then don't color it
-  Vector3d shadow_ray_origin = ray_intersection;
-  Vector3d shadow_ray_direction = (light_position - ray_intersection).normalized().transpose();
-  float epsilon = 0.01;
-  return false;
-}
+
 // 1.4 Ray Tracing Triangle Meshes
 bool does_intersect(float t, float u, float v)
 {
@@ -620,7 +611,7 @@ void part4(bool shadows, bool reflections)
     Vector3d y_displacement(0,-2.0/A.rows(),0);
 
     Vector3d light_position(-1,1,1);
-
+    // Vector3d light_position(1,-1,1);
     // mirror is the plane where y = 0
     float mirror = -0.5;
     for (unsigned i=0;i<A.cols();i++)
@@ -667,6 +658,7 @@ void part4(bool shadows, bool reflections)
 
             float t_reflection = (mirror - ray_origin[1])/ray_direction[1];
             if(t_reflection > 0){
+              cout << t_reflection << endl;
               // If there's a reflection, find r and perform intersection again
               Vector3d ray_intersection_reflection = ray_origin + (t_reflection * ray_direction);
               // Vector3d ray_normal = ray_intersection_reflection.normalized().transpose();
@@ -687,7 +679,8 @@ void part4(bool shadows, bool reflections)
                 }
                 A(i,j) = 1.0;
               }
-            }else if(bunny_intersects){
+            }
+            if(bunny_intersects){
               cout << "BUNNY intersection!" << endl;
               Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
               if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
@@ -726,8 +719,8 @@ int main()
 {
     // part1();
     // part2();
-    // part3();
-    part4(true, true);
+    part3();
+    // part4(true, true);
 
     return 0;
 }

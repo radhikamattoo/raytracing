@@ -7,7 +7,7 @@ I have split up the portions of the homework (sections 1.1 to 1.3) into separate
 The instructions for running each part of the homework are listed below, in its respective section.
 
 
-## Setup
+## Setup & Running
 `git clone --recursive https://github.com/NYUCG2017/assignment-1-radhikamattoo.git`
 
 `mkdir build`
