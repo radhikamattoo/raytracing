@@ -152,11 +152,12 @@ pair<MatrixXd, MatrixXd> read_off_data(string filename, bool enlarge)
       }else{
         V(v,j) = (line_data[j]/10);
       }
-      if(!enlarge){
+      if(!enlarge){ //cube
         V(v,0) += 0.1;
-      }else{
+        V(v,1) += 0.1;
+      }else{ //bunny
         V(v,0) -= 0.15;
-        V(v,1) -= 0.1;
+        V(v,1) -= 0.05;
       }
     }
 
@@ -481,7 +482,7 @@ void part3()
             Vector3d ray_origin = origin;
 
             // Formula taken from textbook
-            double focal_length = 1.0;
+            double focal_length = 0.5;
             Vector3d w(0,0,-1);
             Vector3d ray_direction =  (focal_length * w) + (double(i)*x_displacement + double(j)*y_displacement);
 
@@ -615,7 +616,6 @@ void part4(bool shadows, bool reflections)
 
     Vector3d light_position(-1,1,1); // first light
     // Vector3d light_position(1,-1,1); // second light
-    // Vector3d light_position(0,0,1); // third light
 
     // float mirror = -0.6;
     float mirror = -0.4;
@@ -725,9 +725,6 @@ void part4(bool shadows, bool reflections)
           } // F matrix for loop
 
         } // inner for loop
-        // if(i % 200 == 0){
-        //   cout << "At outer index: " << i << endl;
-        // }
       } // outer for loop
       write_matrix_to_png(R,G,B,A,filename);
 }
@@ -738,7 +735,7 @@ int main()
     // part1();             // 1.1
     // part2();             // 1.2
     // part3();             // 1.3
-    part4(false, false); // 1.4
+    // part4(false, false); // 1.4
     // part4(true, false); // 1.5
     // part4(false, true); // 1.6
 
