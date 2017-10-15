@@ -372,7 +372,6 @@ void part1()
           A(i,j) = 1;
       } // inner loop
   } // outer loop
-  std::cout << "Saving 1.1 sphere to png" << std::endl;
   write_matrix_to_png(C,C,C,A,filename);
 }
 
@@ -443,7 +442,6 @@ void part2()
 
         } // inner loop
     } // outer loop
-    std::cout << "Saving sphere 1.2 to png" << std::endl;
     write_matrix_to_png(R,G,B,A,filename);
 }
 // 1.3 Perspective Projection
@@ -516,7 +514,6 @@ void part3()
             A(i,j) = 1;
         } // inner loop
     } // outer loop
-    std::cout << "Saving sphere 1.3 to png" << std::endl;
     write_matrix_to_png(R,G,B,A,filename);
 }
 // Returns a <bool,float> describing which object it intersected with and the color to set
@@ -580,17 +577,20 @@ pair<bool,float> reflection_intersection(Vector3d &r, Vector3d &intersection_poi
   return pixel_data;
 
 }
-
+// 1.4 - 1.6
 void part4(bool shadows, bool reflections)
 {
+    string filename;
     if(shadows){
       cout << "Part 1.5: Shadows" << endl;
+      filename = "part5.png";
     }else if(reflections){
       cout << "Part 1.6: Reflections" << endl;
+      filename = "part6.png";
     }else{
       cout << "Part 1.4: Ray Tracing Triangle Meshes" << endl;
+      filename = "part4.png";
     }
-    const std::string filename("part4-perspective-shifted-bunny-no-shadows.png");
 
     // Create data matrices from OFF files
     pair<MatrixXd, MatrixXd> bumpy = read_off_data("../data/bumpy_cube.off", false);
@@ -613,10 +613,12 @@ void part4(bool shadows, bool reflections)
     Vector3d x_displacement(2.0/A.cols(),0,0);
     Vector3d y_displacement(0,-2.0/A.rows(),0);
 
-    // Vector3d light_position(-1,1,1);
-    Vector3d light_position(1,-1,1);
-    // mirror is the plane where y = -0.6
-    float mirror = -0.6;
+    Vector3d light_position(-1,1,1); // first light
+    // Vector3d light_position(1,-1,1); // second light
+    // Vector3d light_position(0,0,1); // third light
+
+    // float mirror = -0.6;
+    float mirror = -0.4;
     for (unsigned i=0;i<A.cols();i++)
     {
         for (unsigned j=0;j<A.rows();j++)
@@ -626,7 +628,6 @@ void part4(bool shadows, bool reflections)
           Vector3d ray_direction;
           if(reflections){
             ray_origin = origin;
-
             // Formula taken from textbook
             double focal_length = 1.0;
             Vector3d w(0,0,-1);
@@ -635,6 +636,31 @@ void part4(bool shadows, bool reflections)
             ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
             ray_direction = RowVector3d(0,0,-1);
           }
+          // Test for reflection intersection
+          if(reflections){
+            float t_reflection = (mirror - ray_origin[1])/ray_direction[1];
+            if(t_reflection > 0){
+              // If there's a reflection, find r and perform intersection again
+              Vector3d ray_intersection_reflection = ray_origin + (t_reflection * ray_direction);
+              // Vector3d ray_normal = ray_intersection_reflection.normalized().transpose();
+              Vector3d ray_normal = RowVector3d(0,1,0); // Normal from the y-plane is a unit vector pointing directly upwards
+              Vector3d d_direction = (ray_intersection_reflection - origin).normalized().transpose();
+              Vector3d r_direction = d_direction - (2 *(d_direction.dot(ray_normal)) * ray_normal);
+
+              // Perform ray intersection on r
+              pair<bool,float> result = reflection_intersection(r_direction, ray_intersection_reflection, light_position, F_bumpy, V_bumpy, F_bunny, V_bunny);
+              bool is_bunny = result.first;
+              float pixel_value = result.second;
+              if(pixel_value != -100){
+                if(is_bunny){
+                  R(i,j) = pixel_value;
+                }else{
+                  G(i,j) = pixel_value;
+                }
+                A(i,j) = 1.0;
+              } // pixel_value if
+            } // t > 0 if
+          } // reflections if
 
           // Iterate through all faces and determine if intersection occurs
           for(unsigned x=0; x<(F_bumpy.rows()); x++)
@@ -670,7 +696,7 @@ void part4(bool shadows, bool reflections)
               Vector3d ray_intersection = ray_origin + (t_bunny * ray_direction);
               Vector3d ray_normal = ((b_coord_bunny - a_coord_bunny).cross(c_coord_bunny - a_coord_bunny)).normalized();
               if(shadows){ // Do we want to check for shadows?
-                if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny)){
+                if( is_a_shadow(ray_intersection,light_position, F_bumpy, V_bumpy, F_bunny, V_bunny) ){
                   R(i,j) = 0.0;
                 }else{
                   R(i,j) = compute_triangle_pixel(ray_intersection, ray_normal, light_position, origin);
@@ -697,37 +723,12 @@ void part4(bool shadows, bool reflections)
               break;
             }
           } // F matrix for loop
-          if(reflections){
-            float t_reflection = (mirror - ray_origin[1])/ray_direction[1];
-            if(t_reflection > 0){
-              // If there's a reflection, find r and perform intersection again
-              Vector3d ray_intersection_reflection = ray_origin + (t_reflection * ray_direction);
-              // Vector3d ray_normal = ray_intersection_reflection.normalized().transpose();
-              Vector3d ray_normal = RowVector3d(0,1,0); // Normal from the y-plane is a unit vector pointing directly upwards
-              Vector3d d_direction = (ray_intersection_reflection - origin).normalized().transpose();
-              Vector3d r_direction = d_direction - (2 *(d_direction.dot(ray_normal)) * ray_normal);
-
-              // Perform ray intersection on r
-              pair<bool,float> result = reflection_intersection(r_direction, ray_intersection_reflection, light_position, F_bumpy, V_bumpy, F_bunny, V_bunny);
-              bool is_bunny = result.first;
-              float pixel_value = result.second;
-              if(pixel_value != -100){
-                if(is_bunny){
-                  R(i,j) = pixel_value;
-                }else{
-                  G(i,j) = pixel_value;
-                }
-                A(i,j) = 1.0;
-              } // pixel_value if
-            } // t > 0 if
-          } // reflections if
 
         } // inner for loop
-        if(i % 200 == 0){
-          cout << "At outer index: " << i << endl;
-        }
+        // if(i % 200 == 0){
+        //   cout << "At outer index: " << i << endl;
+        // }
       } // outer for loop
-      std::cout << "Saving sphere 1.4/1.5 to png" << std::endl;
       write_matrix_to_png(R,G,B,A,filename);
 }
 
@@ -737,9 +738,9 @@ int main()
     // part1();             // 1.1
     // part2();             // 1.2
     // part3();             // 1.3
-    // part4(false, false); // 1.4
+    part4(false, false); // 1.4
     // part4(true, false); // 1.5
-    part4(false, true); // 1.6
+    // part4(false, true); // 1.6
 
 
     return 0;
